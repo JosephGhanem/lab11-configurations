@@ -7,8 +7,7 @@ New-Item -ItemType Directory -Force -Path $output | Out-Null
 $package = Join-Path $build 'helloworld_Joseph_Ghanem.msi'
 $ws = New-Object -ComObject WScript.Shell
 
-function Save-Screen([string]$Name) {
-    $bounds = [Windows.Forms.Screen]::PrimaryScreen.Bounds
+function Save-Screen([string]$Name, [Drawing.Rectangle]$Bounds = [Windows.Forms.Screen]::PrimaryScreen.Bounds) {
     $bitmap = New-Object Drawing.Bitmap $bounds.Width, $bounds.Height
     $graphics = [Drawing.Graphics]::FromImage($bitmap)
     try {
@@ -28,7 +27,7 @@ function Find-UI([System.Windows.Automation.AutomationElement]$Parent, [string]$
 }
 
 function Wait-For([scriptblock]$Probe, [string]$Description) {
-    for ($attempt = 0; $attempt -lt 24; $attempt++) {
+    for ($attempt = 0; $attempt -lt 60; $attempt++) {
         $item = & $Probe
         if ($item) { return $item }
         Start-Sleep -Milliseconds 500
@@ -86,7 +85,9 @@ try {
         if ($candidate -and (Find-UI $candidate 'OK')) { $candidate }
     } 'the Windows Installer completion dialog'
     $null = $ws.AppActivate($product)
-    Save-Screen 'windows-msi-installation'
+    $rect = $dialog.Current.BoundingRectangle
+    $bounds = [Drawing.Rectangle]::new([int]$rect.X, [int]$rect.Y, [int]$rect.Width, [int]$rect.Height)
+    Save-Screen 'windows-msi-installation' $bounds
     $ws.SendKeys('{ENTER}')
     if (!$installer.WaitForExit(12000) -or $installer.ExitCode -ne 0) {
         throw 'Windows Installer did not exit successfully'
@@ -99,17 +100,15 @@ Write-Host 'Windows Installer completed successfully.'
 Start-Process control.exe -ArgumentList 'appwiz.cpl'
 $panel = Wait-For { Find-UI $root 'Programs and Features' -Children } 'Programs and Features'
 Write-Host 'Programs and Features opened.'
-$entry = Wait-For { Find-UI $panel $product } 'the Hello World entry in Programs and Features'
-$pattern = $null
-if ($entry.TryGetCurrentPattern([System.Windows.Automation.ScrollItemPattern]::Pattern, [ref]$pattern)) {
-    $pattern.ScrollIntoView()
-}
-$pattern = $null
-if ($entry.TryGetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern, [ref]$pattern)) {
-    $pattern.Select()
-}
+$registration = Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*' |
+    Where-Object DisplayName -eq $product
+if (!$registration) { throw 'Windows Installer registration is missing' }
 $null = $ws.AppActivate('Programs and Features')
+$ws.SendKeys('^e')
 Start-Sleep -Milliseconds 500
+$ws.SendKeys('Hello World')
+$ws.SendKeys('{ENTER}')
+Start-Sleep -Seconds 4
 Save-Screen 'windows-installed-apps'
 
 Show-Console 'Lab 11 - Run the installed application' @'

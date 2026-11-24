@@ -1,0 +1,9 @@
+Package: helloworld
+Version: 1.0
+Section: utils
+Priority: optional
+Architecture: amd64
+Maintainer: Joseph Ghanem
+Depends: libc6 (>= 2.34)
+Description: A simple Hello World application
+ Prints a greeting to the console.

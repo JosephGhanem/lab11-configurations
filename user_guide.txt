@@ -1,0 +1,15 @@
+Hello World 1.0
+
+Windows
+Install the MSI, open PowerShell, and run:
+  & "$env:ProgramFiles\HelloWorld\helloworld.exe"
+
+Debian
+Install the DEB with dpkg -i, then run:
+  helloworld
+
+Expected output:
+  Hello, World from Joseph_Ghanem!
+
+To remove the application, use Installed apps on Windows or
+sudo dpkg -r helloworld on Debian.

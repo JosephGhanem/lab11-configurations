@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Product Id="*" Name="Hello World - Joseph Ghanem" Language="1033"
+           Version="1.0.0" Manufacturer="Joseph Ghanem"
+           UpgradeCode="9ec30a73-ec5d-4f25-a6aa-d64ad4a113cd">
+    <Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" />
+    <MajorUpgrade DowngradeErrorMessage="A newer version of Hello World is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="ProgramFiles64Folder">
+        <Directory Id="INSTALLDIR" Name="HelloWorld">
+          <Component Id="Executable" Guid="b4218508-b15b-42fe-82a3-167e678ccb85" Win64="yes">
+            <File Id="HelloWorldExe" Source="build/helloworld.exe" KeyPath="yes" />
+          </Component>
+          <Component Id="Readme" Guid="fe6666be-c2b4-4824-b3c8-c12dfdbe0925" Win64="yes">
+            <File Id="ReadmeFile" Source="README.md" KeyPath="yes" />
+          </Component>
+          <Component Id="UserGuide" Guid="01feb05e-80df-4fb9-ac4a-d06d12e86be4" Win64="yes">
+            <File Id="UserGuideFile" Source="user_guide.txt" KeyPath="yes" />
+          </Component>
+        </Directory>
+      </Directory>
+    </Directory>
+    <Feature Id="MainFeature" Title="Hello World" Level="1">
+      <ComponentRef Id="Executable" />
+      <ComponentRef Id="Readme" />
+      <ComponentRef Id="UserGuide" />
+    </Feature>
+  </Product>
+</Wix>

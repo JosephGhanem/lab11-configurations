@@ -102,8 +102,11 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          pattern: '*'
-          merge-multiple: true
+          name: packages
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows-evidence
+          path: evidence
       - name: Publish files for the grader
         env:
           GH_TOKEN: ${{ github.token }}

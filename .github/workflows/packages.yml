@@ -1,0 +1,123 @@
+name: Build and verify Lab 11 packages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  packages:
+    runs-on: ubuntu-24.04
+    container: debian:bookworm
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install build tools
+        run: |
+          apt-get update
+          apt-get install -y gcc g++-mingw-w64-x86-64-posix wixl msitools xterm xvfb xauth imagemagick
+      - name: Build DEB and MSI, then inspect and install the Debian package
+        run: |
+          mkdir -p evidence
+          cat > /tmp/debian-proof.sh <<'SCRIPT'
+          #!/bin/sh
+          set -ex
+          ./packaging/debian/build.sh
+          dpkg-deb --info dist/helloworld_Joseph_Ghanem.deb
+          dpkg -i dist/helloworld_Joseph_Ghanem.deb
+          dpkg -l helloworld
+          test "$(helloworld)" = 'Hello, World from Joseph_Ghanem!'
+          helloworld
+          touch /tmp/debian-proof-ok
+          sleep 60
+          SCRIPT
+          chmod +x /tmp/debian-proof.sh
+          xvfb-run -a -s '-screen 0 1280x800x24' sh -ec '
+            xterm -geometry 145x45+0+0 -fa Monospace -fs 13 -e /tmp/debian-proof.sh &
+            terminal=$!
+            trap "kill $terminal 2>/dev/null || true" EXIT
+            for attempt in $(seq 1 30); do
+              if test -f /tmp/debian-proof-ok; then
+                import -window root evidence/debian-build-install-run.png
+                exit 0
+              fi
+              kill -0 "$terminal"
+              sleep 1
+            done
+            exit 1
+          '
+          ./packaging/windows/build.sh > evidence/msi-build.log 2>&1 || { cat evidence/msi-build.log; exit 1; }
+          cat evidence/msi-build.log
+          {
+            msiinfo suminfo dist/helloworld_Joseph_Ghanem.msi
+            msiinfo export dist/helloworld_Joseph_Ghanem.msi Property
+            msiinfo export dist/helloworld_Joseph_Ghanem.msi File
+          } | tee evidence/msi-metadata.log
+          cp packaging/debian/control evidence/debian-control.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: packages
+          path: |
+            dist/
+            evidence/
+          if-no-files-found: error
+
+  windows:
+    needs: packages
+    runs-on: windows-2022
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: packages
+      - name: Install, verify registration, run, and remove the MSI
+        shell: pwsh
+        run: |
+          $package = (Resolve-Path dist/helloworld_Joseph_Ghanem.msi).Path
+          $log = Join-Path $PWD 'evidence/windows-msiexec.log'
+          Start-Transcript -Path evidence/windows-verification.txt
+          try {
+            $install = Start-Process msiexec.exe -ArgumentList "/i `"$package`" /qn /norestart /L*v `"$log`"" -Wait -PassThru
+            if ($install.ExitCode -ne 0) { throw "MSI install failed with exit code $($install.ExitCode)" }
+            $entry = Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*' |
+              Where-Object DisplayName -eq 'Hello World - Joseph Ghanem'
+            if (!$entry) { throw 'Installed Apps registry entry is missing' }
+            $entry | Format-List DisplayName, DisplayVersion, Publisher, PSChildName | Out-Host
+            $folder = Join-Path $env:ProgramFiles 'HelloWorld'
+            foreach ($file in @('helloworld.exe', 'README.md', 'user_guide.txt')) {
+              if (!(Test-Path (Join-Path $folder $file))) { throw "Missing installed file $file" }
+            }
+            $greeting = & (Join-Path $folder 'helloworld.exe')
+            if ($LASTEXITCODE -ne 0 -or $greeting -cne 'Hello, World from Joseph_Ghanem!') {
+              throw "Unexpected greeting: $greeting"
+            }
+            Write-Host $greeting
+            $remove = Start-Process msiexec.exe -ArgumentList "/x `"$package`" /qn /norestart" -Wait -PassThru
+            if ($remove.ExitCode -ne 0) { throw "MSI removal failed with exit code $($remove.ExitCode)" }
+            Write-Host 'Windows installation, execution, and removal verified.'
+          } finally {
+            Stop-Transcript
+          }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-evidence
+          path: evidence/windows-*
+
+  release:
+    needs: [packages, windows]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: '*'
+          merge-multiple: true
+      - name: Publish files for the grader
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "lab11-${GITHUB_RUN_ID}" --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" --title 'Lab 11 deliverables' \
+            --notes 'Windows MSI, Debian DEB, source archive, and build and installation evidence.' \
+            dist/* evidence/*

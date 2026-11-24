@@ -35,3 +35,7 @@ msiexec.exe /i .\helloworld_Joseph_Ghanem.msi /qb
 ```
 
 Use Installed apps to view or remove **Hello World - Joseph Ghanem**. To compile only the C++ source on Windows, use `cl /EHsc src\helloworld.cpp` in a Visual Studio Developer Command Prompt and run `helloworld.exe`.
+
+## Submission files and verification
+
+Open the latest release for the MSI, DEB, source ZIP, Debian terminal screenshot, Debian control file, and Windows build, metadata, and installation logs. The build also checks Windows Installed Apps registration and runs the installed executable on a Windows runner.

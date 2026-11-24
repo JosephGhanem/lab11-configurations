@@ -3,7 +3,7 @@ Version: 1.0
 Section: utils
 Priority: optional
 Architecture: amd64
-Maintainer: Joseph Ghanem
+Maintainer: Joseph Ghanem <237683524+JosephGhanem@users.noreply.github.com>
 Depends: libc6 (>= 2.34)
 Description: A simple Hello World application
  Prints a greeting to the console.

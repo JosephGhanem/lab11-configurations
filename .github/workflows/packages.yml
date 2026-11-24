@@ -17,37 +17,28 @@ jobs:
       - name: Install build tools
         run: |
           apt-get update
-          apt-get install -y gcc g++-mingw-w64-x86-64-posix wixl msitools xterm xvfb xauth imagemagick
+          apt-get install -y gcc g++-mingw-w64-x86-64-posix wixl msitools xterm xvfb xauth imagemagick xfonts-base
       - name: Build DEB and MSI, then inspect and install the Debian package
         run: |
           mkdir -p evidence
-          cat > /tmp/debian-proof.sh <<'SCRIPT'
-          #!/bin/sh
-          set -ex
-          ./packaging/debian/build.sh
-          dpkg-deb --info dist/helloworld_Joseph_Ghanem.deb
-          dpkg -i dist/helloworld_Joseph_Ghanem.deb
-          dpkg -l helloworld
-          test "$(helloworld)" = 'Hello, World from Joseph_Ghanem!'
-          helloworld
-          touch /tmp/debian-proof-ok
-          sleep 60
-          SCRIPT
-          chmod +x /tmp/debian-proof.sh
+          (
+            set -ex
+            ./packaging/debian/build.sh
+            dpkg-deb --info dist/helloworld_Joseph_Ghanem.deb
+            dpkg -i dist/helloworld_Joseph_Ghanem.deb
+            dpkg -l helloworld
+            test "$(/usr/local/bin/helloworld)" = 'Hello, World from Joseph_Ghanem!'
+            /usr/local/bin/helloworld
+          ) > evidence/debian-verification.log 2>&1 || { cat evidence/debian-verification.log; exit 1; }
+          cat evidence/debian-verification.log
           xvfb-run -a -s '-screen 0 1280x800x24' sh -ec '
-            xterm -geometry 145x45+0+0 -fa Monospace -fs 13 -e /tmp/debian-proof.sh &
+            xterm -hold -geometry 132x43+0+0 -e cat evidence/debian-verification.log &
             terminal=$!
             trap "kill $terminal 2>/dev/null || true" EXIT
-            for attempt in $(seq 1 30); do
-              if test -f /tmp/debian-proof-ok; then
-                import -window root evidence/debian-build-install-run.png
-                exit 0
-              fi
-              kill -0 "$terminal"
-              sleep 1
-            done
-            exit 1
-          '
+            sleep 2
+            kill -0 "$terminal"
+            import -window root evidence/debian-build-install-run.png
+          ' || echo "The Debian transcript remains available in evidence/debian-verification.log"
           ./packaging/windows/build.sh > evidence/msi-build.log 2>&1 || { cat evidence/msi-build.log; exit 1; }
           cat evidence/msi-build.log
           {

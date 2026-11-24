@@ -1,0 +1,31 @@
+name: Capture Windows installer screenshots
+
+on:
+  push:
+    branches: [windows-screenshots]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  screenshots:
+    runs-on: windows-2022
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download the MSI submitted for grading
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force build | Out-Null
+          curl.exe --fail --location --silent --show-error --output build/helloworld_Joseph_Ghanem.msi https://github.com/JosephGhanem/lab11-configurations/releases/download/lab11-45364225332/helloworld_Joseph_Ghanem.msi
+          if ($LASTEXITCODE) { throw 'Could not download the released MSI' }
+      - name: Capture the Windows desktop
+        shell: powershell
+        run: ./packaging/windows/capture-screenshots.ps1
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-screenshots
+          path: build/windows-screenshots/
+          if-no-files-found: error

@@ -87,8 +87,7 @@ try {
     } 'the Windows Installer completion dialog'
     $null = $ws.AppActivate($product)
     Save-Screen 'windows-msi-installation'
-    $button = Find-UI $dialog 'OK'
-    $button.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+    $ws.SendKeys('{ENTER}')
     if (!$installer.WaitForExit(12000) -or $installer.ExitCode -ne 0) {
         throw 'Windows Installer did not exit successfully'
     }
@@ -96,8 +95,10 @@ try {
     if (!$installer.HasExited) { Stop-Process -Id $installer.Id }
 }
 
+Write-Host 'Windows Installer completed successfully.'
 Start-Process control.exe -ArgumentList 'appwiz.cpl'
 $panel = Wait-For { Find-UI $root 'Programs and Features' -Children } 'Programs and Features'
+Write-Host 'Programs and Features opened.'
 $entry = Wait-For { Find-UI $panel $product } 'the Hello World entry in Programs and Features'
 $pattern = $null
 if ($entry.TryGetCurrentPattern([System.Windows.Automation.ScrollItemPattern]::Pattern, [ref]$pattern)) {
